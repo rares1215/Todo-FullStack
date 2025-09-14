@@ -1,0 +1,57 @@
+import {Navigate} from "react-router-dom";
+import { useEffect, useState } from "react";
+import {ACCESS_TOKEN, REFRESH_TOKEN} from "../constans"
+import {jwtDecode} from "jwt-decode"
+import api from "../api"
+import LoadingSpinner from "./LoadingSpinner";
+
+
+
+
+function ProtectedRoute({children}) {
+    const [isAuth, setIsAuth] = useState(null);
+
+    useEffect(() =>{
+    auth().catch(() => setIsAuth(false));
+}, []);
+
+    const refreshToken = async () =>{
+        const refresh = localStorage.getItem(REFRESH_TOKEN);
+        try {
+            const res =  await api.post("auth/token/refresh/", {refresh:refresh});
+
+            if(res.status===200) {
+                localStorage.setItem(ACCESS_TOKEN, res.data.access);
+                setIsAuth(true);
+            } else setIsAuth(false);
+        }
+        catch(err)
+        {
+            console.log(err);
+            setIsAuth(false)
+        }
+    }
+
+
+    const auth = async () =>{
+        const token = localStorage.getItem(ACCESS_TOKEN)
+        if(!token) {
+            setIsAuth(false);
+            return
+        };
+
+        const decodedToken = jwtDecode(token);
+        const tokenExpDate = decodedToken.exp;
+        const currentTime = Date.now() / 1000;
+
+        if(tokenExpDate<currentTime) await refreshToken();
+        else setIsAuth(true);
+    }
+
+
+    if (isAuth===null) return <div><LoadingSpinner /></div>
+
+    return isAuth?children:<Navigate to = "/login/" />
+}
+
+export default ProtectedRoute;
